@@ -128,3 +128,6 @@ Two things it cannot check for you:
 
 ### Crossing Metadata
 ![Crossing Metadata](screenshots/04-crossing-metadata.png)
+
+### Pipeline IR Node Graph
+![PipeGen Pipeline IR Node Graph](screenshots/pipeline-graph.png)
