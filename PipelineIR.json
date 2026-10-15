@@ -1,0 +1,585 @@
+{
+  "loop": {
+    "next_file": null,
+    "next_task": null,
+    "projectTree": {},
+    "target_function": {
+      "name": "read_file",
+      "parameters": {}
+    },
+    "visited_steps": [
+      "src1/VehicleDetection/application.py",
+      "models/yolo11s.onnx"
+    ]
+  },
+  "pipeline_ir": {
+    "connections": [
+      [
+        "p01o_frame",
+        "p02i_frame"
+      ],
+      [
+        "p02o_tensor",
+        "p03i_tensor"
+      ],
+      [
+        "p03o_raw",
+        "p04i_raw"
+      ],
+      [
+        "p02o_geometry",
+        "p04i_geometry"
+      ],
+      [
+        "p04o_detections",
+        "p05i_detections"
+      ],
+      [
+        "p01o_meta",
+        "p05i_meta"
+      ],
+      [
+        "p05o_tracks",
+        "p06i_tracks"
+      ],
+      [
+        "p01o_frame",
+        "p06i_frame"
+      ],
+      [
+        "p06o_analytics",
+        "p07i_analytics"
+      ],
+      [
+        "p01o_frame",
+        "p08i_frame"
+      ],
+      [
+        "p06o_analytics",
+        "p08i_analytics"
+      ]
+    ],
+    "nodes": [
+      {
+        "description": "Read every video frame and its source timing metadata.",
+        "id": 1,
+        "name": "file",
+        "ports": [
+          {
+            "direction": "output",
+            "format": {
+              "color": "BGR",
+              "encoding": "raw"
+            },
+            "framerate": {
+              "denominator": 1,
+              "numerator": 30
+            },
+            "id": "p01o_frame",
+            "tensor": {
+              "dtype": "uint8",
+              "shape": [
+                1080,
+                1920,
+                3
+              ]
+            }
+          },
+          {
+            "direction": "output",
+            "format": {
+              "color": null,
+              "encoding": null
+            },
+            "framerate": {
+              "denominator": 1,
+              "numerator": 30
+            },
+            "id": "p01o_meta",
+            "tensor": {
+              "dtype": null,
+              "shape": null
+            }
+          }
+        ],
+        "pseudo_code": "cap = cv2.VideoCapture('traffic_project/traffic.mp4')\nif not cap.isOpened(): raise IOError('Cannot open input video')\nindex = 0\nwhile True:\n    ok, frame = cap.read()\n    if not ok: break\n    timestamp_ms = cap.get(cv2.CAP_PROP_POS_MSEC)\n    timestamp_s = timestamp_ms / 1000.0 if timestamp_ms > 0 else index / 30.0\n    meta = {'frame_index': index, 'timestamp_s': timestamp_s}\n    emit(p01o_frame=frame, p01o_meta=meta)\n    index += 1\ncap.release()",
+        "resolution": [
+          1920,
+          1080
+        ],
+        "type": "input",
+        "url": "file://traffic_project/traffic.mp4"
+      },
+      {
+        "color_order": "RGB",
+        "description": "Letterbox video frames and prepare normalized RGB model tensors.",
+        "id": 2,
+        "mean": null,
+        "normalization": 0.00392156862745098,
+        "offset": null,
+        "pad_value": 114,
+        "ports": [
+          {
+            "direction": "input",
+            "format": {
+              "color": "BGR",
+              "encoding": "raw"
+            },
+            "framerate": {
+              "denominator": 1,
+              "numerator": 30
+            },
+            "id": "p02i_frame",
+            "tensor": {
+              "dtype": "uint8",
+              "shape": [
+                1080,
+                1920,
+                3
+              ]
+            }
+          },
+          {
+            "direction": "output",
+            "format": {
+              "color": "RGB",
+              "encoding": "raw"
+            },
+            "framerate": {
+              "denominator": 1,
+              "numerator": 30
+            },
+            "id": "p02o_tensor",
+            "tensor": {
+              "dtype": "fp32",
+              "shape": [
+                1,
+                3,
+                640,
+                640
+              ]
+            }
+          },
+          {
+            "direction": "output",
+            "format": {
+              "color": null,
+              "encoding": null
+            },
+            "framerate": {
+              "denominator": 1,
+              "numerator": 30
+            },
+            "id": "p02o_geometry",
+            "tensor": {
+              "dtype": null,
+              "shape": null
+            }
+          }
+        ],
+        "pseudo_code": "def process(frame):\n    orig_h, orig_w = frame.shape[:2]\n    r = min(640 / orig_h, 640 / orig_w)\n    new_w, new_h = round(orig_w * r), round(orig_h * r)\n    resized = cv2.resize(frame, (new_w, new_h), interpolation=cv2.INTER_LINEAR)\n    canvas = np.full((640, 640, 3), 114, dtype=np.uint8)\n    pad_x, pad_y = (640 - new_w) // 2, (640 - new_h) // 2\n    canvas[pad_y:pad_y + new_h, pad_x:pad_x + new_w] = resized\n    blob = cv2.cvtColor(canvas, cv2.COLOR_BGR2RGB).astype(np.float32) / 255.0\n    blob = np.ascontiguousarray(np.transpose(blob, (2, 0, 1))[None])\n    geometry = {'ratio': r, 'pad_x': pad_x, 'pad_y': pad_y, 'orig_w': orig_w, 'orig_h': orig_h}\n    return blob, geometry",
+        "resize": [
+          640,
+          640
+        ],
+        "resize_mode": "letterbox",
+        "scale": 0.00392156862745098,
+        "std": null,
+        "type": "preprocess"
+      },
+      {
+        "batchSize": 1,
+        "description": "Run YOLO11s detection for each independently prepared frame.",
+        "id": 3,
+        "layout": "NCHW",
+        "model": {
+          "inputs": [
+            {
+              "dtype": "fp32",
+              "name": "images",
+              "shape": [
+                1,
+                3,
+                640,
+                640
+              ]
+            }
+          ],
+          "name": "YOLO11s COCO detection",
+          "outputs": [
+            {
+              "dtype": "fp32",
+              "name": "output0",
+              "shape": [
+                1,
+                84,
+                8400
+              ]
+            }
+          ],
+          "parameter_count": 9485791,
+          "type": "engine",
+          "url": "models/yolo11s.fp16.plan",
+          "source_onnx": "models/yolo11s.onnx"
+        },
+        "ports": [
+          {
+            "direction": "input",
+            "format": {
+              "color": "RGB",
+              "encoding": "raw"
+            },
+            "framerate": {
+              "denominator": 1,
+              "numerator": 30
+            },
+            "id": "p03i_tensor",
+            "tensor": {
+              "dtype": "fp32",
+              "shape": [
+                1,
+                3,
+                640,
+                640
+              ]
+            }
+          },
+          {
+            "direction": "output",
+            "format": {
+              "color": null,
+              "encoding": null
+            },
+            "framerate": {
+              "denominator": 1,
+              "numerator": 30
+            },
+            "id": "p03o_raw",
+            "tensor": {
+              "dtype": "fp32",
+              "shape": [
+                1,
+                84,
+                8400
+              ]
+            }
+          }
+        ],
+        "pseudo_code": "session = ort.InferenceSession(model_path, providers=ort.get_available_providers())\ndef process(blob):\n    output0 = session.run(['output0'], {'images': blob})[0]\n    return output0\n# The model stage compiles the selected ONNX model to the requested TensorRT engine.",
+        "type": "inference"
+      },
+      {
+        "description": "Decode selected COCO boxes and apply classwise suppression.",
+        "id": 4,
+        "label_file_path": null,
+        "num_classes": 80,
+        "ports": [
+          {
+            "direction": "input",
+            "format": {
+              "color": null,
+              "encoding": null
+            },
+            "framerate": {
+              "denominator": 1,
+              "numerator": 30
+            },
+            "id": "p04i_raw",
+            "tensor": {
+              "dtype": "fp32",
+              "shape": [
+                1,
+                84,
+                8400
+              ]
+            }
+          },
+          {
+            "direction": "input",
+            "format": {
+              "color": null,
+              "encoding": null
+            },
+            "framerate": {
+              "denominator": 1,
+              "numerator": 30
+            },
+            "id": "p04i_geometry",
+            "tensor": {
+              "dtype": null,
+              "shape": null
+            }
+          },
+          {
+            "direction": "output",
+            "format": {
+              "color": null,
+              "encoding": null
+            },
+            "framerate": {
+              "denominator": 1,
+              "numerator": 30
+            },
+            "id": "p04o_detections",
+            "tensor": {
+              "dtype": null,
+              "shape": null
+            }
+          }
+        ],
+        "pseudo_code": "def process(output0, geometry):\n    preds = np.squeeze(output0, 0).T  # [8400,84]: cx,cy,w,h, then 80 scores\n    boxes_xywh, scores = preds[:, :4], preds[:, 4:]\n    class_ids = np.argmax(scores, axis=1)\n    confidences = scores[np.arange(scores.shape[0]), class_ids]\n    keep = (confidences >= 0.5) & np.isin(class_ids, [0, 1, 2])\n    boxes_xywh = boxes_xywh[keep]\n    confidences = confidences[keep]\n    class_ids = class_ids[keep]\n    if len(boxes_xywh) == 0: return []\n    cx, cy, w, h = boxes_xywh.T\n    ratio, pad_x, pad_y = geometry['ratio'], geometry['pad_x'], geometry['pad_y']\n    orig_w, orig_h = geometry['orig_w'], geometry['orig_h']\n    x1 = np.clip((cx - w / 2 - pad_x) / ratio, 0, orig_w)\n    y1 = np.clip((cy - h / 2 - pad_y) / ratio, 0, orig_h)\n    x2 = np.clip((cx + w / 2 - pad_x) / ratio, 0, orig_w)\n    y2 = np.clip((cy + h / 2 - pad_y) / ratio, 0, orig_h)\n    names = {0: 'person', 1: 'bicycle', 2: 'car'}\n    dets = []\n    for c in np.unique(class_ids):\n        idxs = np.where(class_ids == c)[0]\n        rects = np.stack([x1[idxs], y1[idxs], (x2 - x1)[idxs], (y2 - y1)[idxs]], axis=1)\n        retained = cv2.dnn.NMSBoxes(rects.tolist(), confidences[idxs].tolist(), 0.5, 0.45)\n        retained = np.array(retained).flatten() if len(retained) else []\n        for i in retained:\n            oi = idxs[i]\n            dets.append({'box': [float(x1[oi]), float(y1[oi]), float(x2[oi]), float(y2[oi])], 'score': float(confidences[oi]), 'class': int(class_ids[oi]), 'label': names[int(class_ids[oi])]})\n    return dets",
+        "task": "detection",
+        "threshold": 0.5,
+        "top_items": null,
+        "type": "postprocess"
+      },
+      {
+        "category": "tracking",
+        "description": "Associate input1 detections into persistent class-consistent object tracks.",
+        "external_assets": [],
+        "id": 5,
+        "inputs": [
+          "bbox",
+          "frame_metadata"
+        ],
+        "name": "object tracking",
+        "outputs": [
+          "tracks"
+        ],
+        "parameters": {
+          "iou_threshold": 0.3,
+          "max_missed_frames": 30
+        },
+        "placement": {
+          "attach_point": null,
+          "position": "post_nn"
+        },
+        "ports": [
+          {
+            "direction": "input",
+            "format": {
+              "color": null,
+              "encoding": null
+            },
+            "framerate": {
+              "denominator": 1,
+              "numerator": 30
+            },
+            "id": "p05i_detections",
+            "tensor": {
+              "dtype": null,
+              "shape": null
+            }
+          },
+          {
+            "direction": "input",
+            "format": {
+              "color": null,
+              "encoding": null
+            },
+            "framerate": {
+              "denominator": 1,
+              "numerator": 30
+            },
+            "id": "p05i_meta",
+            "tensor": {
+              "dtype": null,
+              "shape": null
+            }
+          },
+          {
+            "direction": "output",
+            "format": {
+              "color": null,
+              "encoding": null
+            },
+            "framerate": {
+              "denominator": 1,
+              "numerator": 30
+            },
+            "id": "p05o_tracks",
+            "tensor": {
+              "dtype": null,
+              "shape": null
+            }
+          }
+        ],
+        "pseudo_code": "tracks = {}  # Persistent across all frames: id -> {box,score,class,label,missed}\nnext_id = 1\n\ndef iou(a, b):\n    ix1, iy1 = max(a[0], b[0]), max(a[1], b[1])\n    ix2, iy2 = min(a[2], b[2]), min(a[3], b[3])\n    intersection = max(0.0, ix2 - ix1) * max(0.0, iy2 - iy1)\n    area_a = max(0.0, a[2] - a[0]) * max(0.0, a[3] - a[1])\n    area_b = max(0.0, b[2] - b[0]) * max(0.0, b[3] - b[1])\n    union = area_a + area_b - intersection\n    return intersection / union if union > 0 else 0.0\n\ndef process(detections, meta):\n    global next_id\n    candidates = []\n    for track_id, track in tracks.items():\n        for j, det in enumerate(detections):\n            if track['class'] == det['class']:\n                overlap = iou(track['box'], det['box'])\n                if overlap >= 0.3: candidates.append((overlap, track_id, j))\n    matched_ids, matched_dets = set(), set()\n    for overlap, track_id, j in sorted(candidates, key=lambda item: (-item[0], item[1], item[2])):\n        if track_id in matched_ids or j in matched_dets: continue\n        det = detections[j]\n        tracks[track_id].update(box=det['box'], score=det['score'], missed=0)\n        matched_ids.add(track_id)\n        matched_dets.add(j)\n    for track_id in list(tracks):\n        if track_id not in matched_ids:\n            tracks[track_id]['missed'] += 1\n            if tracks[track_id]['missed'] > 30: del tracks[track_id]\n    current = []\n    for j, det in enumerate(detections):\n        if j not in matched_dets:\n            track_id = next_id\n            next_id += 1\n            tracks[track_id] = {**det, 'missed': 0}\n        else:\n            track_id = next(tid for tid in matched_ids if tracks[tid]['missed'] == 0 and tid in [candidate_id for _, candidate_id, candidate_j in candidates if candidate_j == j and candidate_id in matched_ids and tracks[candidate_id]['box'] == det['box']])\n        current.append({'track_id': track_id, 'box': list(det['box']), 'score': det['score'], 'class': det['class'], 'label': det['label']})\n    return {'frame_index': meta['frame_index'], 'timestamp_s': meta['timestamp_s'], 'tracks': current}",
+        "reference_path": null,
+        "runs_every_frame": true,
+        "state_key": "global",
+        "triggers": [],
+        "type": "custom"
+      },
+      {
+        "category": "state_estimation",
+        "description": "Count input1 tracked crossings once per track and class.",
+        "external_assets": [],
+        "id": 6,
+        "inputs": [
+          "tracks",
+          "image"
+        ],
+        "name": "line-crossing count",
+        "outputs": [
+          "analytics"
+        ],
+        "parameters": {
+          "classes": [
+            "person",
+            "bicycle",
+            "car"
+          ],
+          "count_each_track_once": true,
+          "line_y_fraction": 0.5,
+          "method": "Count tracked-object crossings of a configured virtual line"
+        },
+        "placement": {
+          "attach_point": null,
+          "position": "post_tracker"
+        },
+        "ports": [
+          {
+            "direction": "input",
+            "format": {
+              "color": null,
+              "encoding": null
+            },
+            "framerate": {
+              "denominator": 1,
+              "numerator": 30
+            },
+            "id": "p06i_tracks",
+            "tensor": {
+              "dtype": null,
+              "shape": null
+            }
+          },
+          {
+            "direction": "input",
+            "format": {
+              "color": "BGR",
+              "encoding": "raw"
+            },
+            "framerate": {
+              "denominator": 1,
+              "numerator": 30
+            },
+            "id": "p06i_frame",
+            "tensor": {
+              "dtype": "uint8",
+              "shape": [
+                1080,
+                1920,
+                3
+              ]
+            }
+          },
+          {
+            "direction": "output",
+            "format": {
+              "color": null,
+              "encoding": null
+            },
+            "framerate": {
+              "denominator": 1,
+              "numerator": 30
+            },
+            "id": "p06o_analytics",
+            "tensor": {
+              "dtype": null,
+              "shape": null
+            }
+          }
+        ],
+        "pseudo_code": "last_nonzero_side = {}  # Kept for the entire input, including tracker misses.\ncounted_ids = set()\ntotals = {'person': 0, 'bicycle': 0, 'car': 0}\n\ndef process(track_packet, frame):\n    height, width = frame.shape[:2]\n    line_y = height * 0.5\n    events = []\n    current_counts = {'person': 0, 'bicycle': 0, 'car': 0}\n    for track in track_packet['tracks']:\n        label = track['label']\n        if label not in totals: continue\n        current_counts[label] += 1\n        x1, y1, x2, y2 = track['box']\n        center_x, center_y = (x1 + x2) / 2.0, (y1 + y2) / 2.0\n        side = -1 if center_y < line_y else (1 if center_y > line_y else 0)\n        track_id = track['track_id']\n        previous = last_nonzero_side.get(track_id)\n        if side != 0:\n            if previous is not None and side != previous and track_id not in counted_ids:\n                counted_ids.add(track_id)\n                totals[label] += 1\n                events.append({'frame_index': track_packet['frame_index'], 'timestamp_s': track_packet['timestamp_s'], 'track_id': track_id, 'class': label, 'direction': 'top_to_bottom' if previous < side else 'bottom_to_top', 'center': [center_x, center_y]})\n            last_nonzero_side[track_id] = side\n    return {'frame_index': track_packet['frame_index'], 'timestamp_s': track_packet['timestamp_s'], 'line_y': line_y, 'frame_width': width, 'tracks': track_packet['tracks'], 'current_counts': current_counts, 'crossing_counts': dict(totals), 'crossing_events': events}",
+        "reference_path": null,
+        "runs_every_frame": true,
+        "state_key": "global",
+        "triggers": [],
+        "type": "custom"
+      },
+      {
+        "description": "Save per-frame tracks, crossing events and cumulative JSON totals.",
+        "grid": null,
+        "id": 7,
+        "name": "json",
+        "output_type": "single",
+        "ports": [
+          {
+            "direction": "input",
+            "format": {
+              "color": null,
+              "encoding": null
+            },
+            "framerate": {
+              "denominator": 1,
+              "numerator": 30
+            },
+            "id": "p07i_analytics",
+            "tensor": {
+              "dtype": null,
+              "shape": null
+            }
+          }
+        ],
+        "pseudo_code": "path = 'output/metadata.json'\nos.makedirs(os.path.dirname(path), exist_ok=True)\nresult = {'source': 'traffic_project/traffic.mp4', 'classes': ['person', 'bicycle', 'car'], 'frames': [], 'events': [], 'crossing_counts': {'person': 0, 'bicycle': 0, 'car': 0}}\ndef process(analytics):\n    result['frames'].append(analytics)\n    result['events'].extend(analytics['crossing_events'])\n    result['crossing_counts'] = dict(analytics['crossing_counts'])\n    temporary = path + '.tmp'\n    with open(temporary, 'w', encoding='utf-8') as handle:\n        json.dump(result, handle, ensure_ascii=False)\n    os.replace(temporary, path)",
+        "resolution": null,
+        "type": "output",
+        "url": "file://output/metadata.json"
+      },
+      {
+        "description": "Display annotated original frames with tracks and crossing totals.",
+        "grid": null,
+        "id": 8,
+        "name": "display",
+        "output_type": "single",
+        "ports": [
+          {
+            "direction": "input",
+            "format": {
+              "color": "BGR",
+              "encoding": "raw"
+            },
+            "framerate": {
+              "denominator": 1,
+              "numerator": 30
+            },
+            "id": "p08i_frame",
+            "tensor": {
+              "dtype": "uint8",
+              "shape": [
+                1080,
+                1920,
+                3
+              ]
+            }
+          },
+          {
+            "direction": "input",
+            "format": {
+              "color": null,
+              "encoding": null
+            },
+            "framerate": {
+              "denominator": 1,
+              "numerator": 30
+            },
+            "id": "p08i_analytics",
+            "tensor": {
+              "dtype": null,
+              "shape": null
+            }
+          }
+        ],
+        "pseudo_code": "def process(frame, analytics):\n    image = frame.copy()\n    h, w = image.shape[:2]\n    scale = max(w, h) / 1400.0\n    box_thick = max(2, int(4 * scale))\n    label_scale = max(0.9, 1.2 * scale)\n    label_thick = max(2, int(3 * scale))\n    colors = {'person': (0, 200, 0), 'bicycle': (255, 180, 0), 'car': (0, 180, 255)}\n    for track in analytics['tracks']:\n        x1, y1, x2, y2 = map(int, track['box'])\n        color = colors[track['label']]\n        label = f\"{track['label']} #{track['track_id']} {track['score']:.2f}\"\n        cv2.rectangle(image, (x1, y1), (x2, y2), color, box_thick)\n        (tw, th), baseline = cv2.getTextSize(label, cv2.FONT_HERSHEY_SIMPLEX, label_scale, label_thick)\n        label_y = max(y1, th + baseline + 8)\n        cv2.rectangle(image, (x1, label_y - th - baseline - 8), (x1 + tw + 12, label_y), color, -1)\n        cv2.putText(image, label, (x1 + 6, label_y - baseline - 3), cv2.FONT_HERSHEY_SIMPLEX, label_scale, (0, 0, 0), label_thick, cv2.LINE_AA)\n    y = int(analytics['line_y'])\n    cv2.line(image, (0, y), (w - 1, y), (255, 0, 255), max(2, box_thick))\n    totals = analytics['crossing_counts']\n    banner = f\"CROSSINGS  person: {totals['person']}  bicycle: {totals['bicycle']}  car: {totals['car']}\"\n    banner_scale = max(0.9, 1.2 * scale)\n    banner_thick = max(2, int(3 * scale))\n    (tw, th), baseline = cv2.getTextSize(banner, cv2.FONT_HERSHEY_SIMPLEX, banner_scale, banner_thick)\n    pad = int(12 * scale) + 8\n    cv2.rectangle(image, (0, 0), (min(w - 1, tw + 2 * pad), th + baseline + 2 * pad), (0, 0, 0), -1)\n    cv2.putText(image, banner, (pad, th + pad), cv2.FONT_HERSHEY_SIMPLEX, banner_scale, (0, 255, 0), banner_thick, cv2.LINE_AA)\n    cv2.imshow('Crosswalk Traffic Analytics', image)\n    cv2.waitKey(1)",
+        "resolution": [
+          1920,
+          1080
+        ],
+        "type": "output",
+        "url": null
+      }
+    ]
+  }
+}

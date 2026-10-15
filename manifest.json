@@ -1,0 +1,43 @@
+{
+  "schema": 1,
+  "project_name": "Crosswalk Traffic Analytics Pipeline",
+  "project_id": "bb46b8fc-45c4-4f92-8195-3b0eb196ba39",
+  "pipegen_version": "0.5.1",
+  "exported_at": "2026-10-15T14:45:44Z",
+  "origin": {
+    "gpu": "NVIDIA GeForce RTX 3050 Laptop GPU",
+    "trt": "10.3.0",
+    "arch": "x86_64",
+    "image": "craftifaidocker/deepstream:7.1-amd64-v3",
+    "gpu_slug": "nvidia-geforce-rtx-3050-laptop-gpu"
+  },
+  "models": [
+    {
+      "name": "yolo11s",
+      "onnx": "models/yolo11s.onnx",
+      "plan": "models/yolo11s.fp16.plan",
+      "precision": "fp16",
+      "workspace_mb": 1024,
+      "builder_optimization_level": 3,
+      "origin_builder_optimization_level": 0,
+      "onnx_sha256": "f8d06a921024c1a46091d48a59a8e377ba189f14250df167fe82f408ca37814b",
+      "plan_sha256": "2b92c004fb45484dc6eef1a2b02120d9815bd414e509cb9d23ec6c230d676dd3",
+      "engine_bytes": 28153172,
+      "layer_count": 251
+    }
+  ],
+  "io": {
+    "default_input_kind": "file",
+    "default_input": "traffic.mp4",
+    "supported_inputs": [
+      "file",
+      "rtsp"
+    ],
+    "input_required": true,
+    "output_dir": "out",
+    "has_display_sink": true
+  },
+  "warnings": [
+    "the pipeline read traffic.mp4, which lives outside the project and cannot be shipped \u2014 the recipient must pass --input"
+  ]
+}

@@ -1,0 +1,30 @@
+# nvinfer_backport config — object detection
+# Custom parser (parse-bbox-func-name) turns the raw output tensor(s) into
+# NvDsInferObjectDetectionInfo boxes; nvinfer rescales them onto the frame and
+# nvdsosd renders the boxes + labels from labelfile-path.
+[property]
+gpu-id=0
+net-scale-factor=0.00392157
+model-color-format=0
+model-engine-file=../../models/yolo11s.fp16.plan
+infer-dims=3;640;640
+network-input-order=0
+batch-size=1
+network-mode=2
+process-mode=1
+network-type=0
+num-detected-classes=80
+maintain-aspect-ratio=1
+symmetric-padding=1
+output-blob-names=output0
+labelfile-path=../labels/config_det_pgie_labels.txt
+custom-lib-path=../build/libconfig_det_pgie_parser.so
+parse-bbox-func-name=ParseConfigDetPgie
+cluster-mode=4
+output-tensor-meta=1
+interval=0
+gie-unique-id=1
+
+[class-attrs-all]
+pre-cluster-threshold=0.5
+nms-iou-threshold=0.45
