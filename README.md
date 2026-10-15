@@ -115,3 +115,11 @@ Two things it cannot check for you:
   it says so and tells you to pass `--input`.
 - **A different GPU.** That is expected — the engine is rebuilt from
   `models/*.onnx` automatically, which takes about a minute.
+
+## Screenshots
+
+### Pipeline IR Node Graph
+![Pipeline IR Node Graph](screenshots/pipeline-graph.png)
+
+### Running Traffic Analytics
+![Running Traffic Analytics](screenshots/traffic-detection.png)
