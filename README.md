@@ -115,3 +115,16 @@ Two things it cannot check for you:
   it says so and tells you to pass `--input`.
 - **A different GPU.** That is expected — the engine is rebuilt from
   `models/*.onnx` automatically, which takes about a minute.
+## Screenshots
+
+### PipeGen Model Benchmark
+![PipeGen Model Benchmark](screenshots/01-pipegen-benchmark.png)
+
+### Pipeline Execution
+![Pipeline Execution](screenshots/02-pipeline-run.png)
+
+### Annotated Traffic Video
+![Annotated Traffic Video](screenshots/03-annotated-video.png)
+
+### Crossing Metadata
+![Crossing Metadata](screenshots/04-crossing-metadata.png)
